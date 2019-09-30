@@ -3,11 +3,30 @@
 static int device_major_number; ///< Stores the device number
 
 static struct device *eps_device = NULL; ///< pointer to the device driver struct
-static struct class  *eps_class  = NULL; ///< pointer to the class struct that this 
+static struct class  *eps_class  = NULL; ///< pointer to the class struct that this
                                          ///< device should be registered to
 
-char tmp_buffer[BUFFER_LEN] = {0};
-short n_bytes;
+static char tmp_buffer[BUFFER_LEN] = {0};
+static short n_bytes;
+
+static char *eps_devnode(struct device *dev, umode_t *mode)
+{
+/** @Brief Sets permissions on the device that has been opened
+ *  param[in] dev pointer to the device
+ *  param[out] mode pointer to permissions that have been set.
+ */
+  if(!mode)
+  {
+    return NULL;
+  }
+
+  if(dev->devt == MKDEV(device_major_number, 0))
+  {
+    *mode = 0666;
+  }
+
+  return NULL;
+}
 
 int char_dev_open(struct inode *pinode, struct file *pfile)
 {
@@ -15,7 +34,7 @@ int char_dev_open(struct inode *pinode, struct file *pfile)
  * param[in] pinode that is a pointer to an inode object as defined in linux/fs.h
  * param[in] pfile that is a pointer to a file object as in linux/fs.h
  */
-  printk(KERN_INFO "eps_char_dev: The device has been opened.\n"); 
+  printk(KERN_INFO "eps_char_dev: The device has been opened.\n");
   return 0;
 }
 
@@ -32,8 +51,8 @@ ssize_t char_dev_read(struct file *pfile, char __user *buffer, size_t length, lo
   ///< Copy data from kernel space to user space.
   if(n_bytes)
   {
-    ret = copy_to_user(buffer /* to */, 
-                      tmp_buffer /* from */, 
+    ret = copy_to_user(buffer /* to */,
+                      tmp_buffer /* from */,
                       n_bytes /* number of bytes to copy */);
   }
   else
@@ -41,7 +60,7 @@ ssize_t char_dev_read(struct file *pfile, char __user *buffer, size_t length, lo
     printk(KERN_INFO "eps_char_dev: Nothing to send.\n");
     return 0;
   }
-  
+
   if(!ret) ///< Succes.
   {
     printk(KERN_INFO "eps_char_dev: Successfully sent %d bytes.\n", n_bytes);
@@ -66,7 +85,7 @@ ssize_t char_dev_write(struct file *pfile, const char __user *buffer, size_t len
  *  param[in] length represents the length of the buffer
  *  param[in] offset
  */
-  sprintf(tmp_buffer, "%s", buffer);
+  copy_from_user(tmp_buffer, buffer, length);
   n_bytes = strlen(tmp_buffer);
   printk(KERN_INFO "eps_char_dev: Received %d bytes\n", n_bytes);
   return length;
@@ -90,7 +109,7 @@ __init int char_dev_module_init(void)
 
   printk(KERN_ALERT "Initialization of char_dev_module.\n");
   ///< Register with the kernel
-  device_major_number = register_chrdev(0 /* Major Number */, 
+  device_major_number = register_chrdev(0 /* Major Number */,
                                         DRIVER_NAME /* Name of the driver */,
                                         &char_dev_file_operations /* File Operations */);
 
@@ -103,31 +122,32 @@ __init int char_dev_module_init(void)
     printk(KERN_INFO "eps_char_dev: The driver has been successfully registered."
                      " dev_major_number %d.\n", device_major_number);
   }
-  ///< Register the class of the device driver
+  ///< Register the class of the device
   eps_class = class_create(THIS_MODULE, CLASS_NAME);
 
   if(IS_ERR(eps_class))
   {
-    unregister_chrdev(device_major_number, DRIVER_NAME);
+    unregister_chrdev(device_major_number, DEVICE_NAME);
     printk(KERN_ALERT "eps_char_dev: Failed to register the class.\n");
     return PTR_ERR(eps_class);
   }
   else
   {
     printk(KERN_INFO "eps_char_dev: The class has been successfully registered.\n");
+    eps_class->devnode = eps_devnode; ///< Pointer to function that sets device permissions.
   }
-  ///< Register the device driver
+  ///< Register the device
   eps_device = device_create(eps_class /* pointer to struct class */,
                              NULL /* parent */,
                              MKDEV(device_major_number, 0) /* the dev_t for the char \
                                                               device to be added */,
                              NULL /* driver data */,
-                             DRIVER_NAME);
+                             DEVICE_NAME);
 
   if(IS_ERR(eps_device))
   {
     class_destroy(eps_class);
-    unregister_chrdev(device_major_number, DRIVER_NAME);
+    unregister_chrdev(device_major_number, DEVICE_NAME);
     printk(KERN_ALERT "eps_char_dev: Failed to create the device.\n");
     return PTR_ERR(eps_device);
   }

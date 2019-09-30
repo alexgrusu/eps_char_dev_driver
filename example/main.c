@@ -8,13 +8,13 @@
 #include<string.h>
 #include<unistd.h>
 
-#define CHAR_DEV_NAME "/dev/test_char_device"
+#define CHAR_DEV_NAME "/dev/teps_char_dev"
 
-#define LEN 1024 
+#define LEN 1024
 
 char buff_recv[LEN];
 char buff_send[LEN];
- 
+
 int main(void)
 {
   int ret, fd;
@@ -22,7 +22,7 @@ int main(void)
   fd = open(CHAR_DEV_NAME, O_RDWR);
   if(fd < 0)
   {
-    perror("Failed to open the device.\n");
+    perror("Failed to open the device. ");
     return errno;
   }
   else
@@ -41,19 +41,19 @@ int main(void)
 
     if(ret < 0)
     {
-      perror("Failed to write to the device.");
+      perror("Failed to write to the device");
       return errno;
     }
     else
     {
       memset(buff_send, 0, LEN);
     }
-    
+
     ret = read(fd, buff_recv, LEN);
 
     if(ret < 0)
     {
-      perror("Failed to read from the device.\n");
+      perror("Failed to read from the device");
       return errno;
     }
     else
@@ -64,7 +64,7 @@ int main(void)
 
   if(close(fd) < 0)
   {
-    perror("Failed to close the device.\n");
+    perror("Failed to close the device");
     return errno;
   }
   else
